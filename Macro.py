@@ -11,12 +11,7 @@ def record_macro():
     macro_data = []
     start_time = time.time()
 
-    #while True:
-    #    if keyboard.is_pressed(record_key):
-    #        print("Recording macro...")
-    #        while keyboard.is_pressed(record_key):  # Wait for the record key to be released
-    #            pass
-    #        break
+
 
     while True:
         if keyboard.is_pressed(record_key):
