@@ -1,0 +1,21 @@
+QWidget {
+    background-color: #ffffff; /* GitHub Light Mode background color */
+    color: #24292e; /* GitHub Light Mode text color */
+}
+
+QPushButton {
+    border: 1px solid #e1e4e8; /* GitHub Light Mode border color */
+    border-radius: 6px; /* GitHub's border radius */
+    padding: 10px; /* Padding as per previous style */
+    color: #24292e; /* GitHub Light Mode text color */
+    font-size: 16px; /* Font size as per previous style */
+    background-color: #fafbfc; /* GitHub Light Mode button background color */
+}
+
+QPushButton#RecordButton:hover, QPushButton#PlayButton:hover {
+    background-color: #f6f8fa; /* GitHub Light Mode hover background color */
+}
+
+QPushButton#RecordButton:pressed, QPushButton#PlayButton:pressed {
+    background-color: #e1e4e8; /* GitHub Light Mode pressed background color */
+}

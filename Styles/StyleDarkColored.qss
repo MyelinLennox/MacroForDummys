@@ -1,0 +1,21 @@
+QWidget {
+    background-color: #0d1117; /* GitHub Dark Mode background color */
+    color: #c9d1d9; /* GitHub Dark Mode text color */
+}
+
+QPushButton {
+    border: 1px solid #30363d; /* GitHub Dark Mode border color */
+    border-radius: 6px; /* GitHub's border radius */
+    padding: 10px; /* Padding as per previous style */
+    color: #c9d1d9; /* GitHub Dark Mode text color */
+    font-size: 16px; /* Font size as per previous style */
+    background-color: #21262d; /* GitHub Dark Mode button background color */
+}
+
+QPushButton#RecordButton:hover, QPushButton#PlayButton:hover {
+    background-color: #30363d; /* GitHub Dark Mode hover background color */
+}
+
+QPushButton#RecordButton:pressed, QPushButton#PlayButton:pressed {
+    background-color: #161b22; /* GitHub Dark Mode pressed background color */
+}
