@@ -1,7 +1,10 @@
+from fileinput import filename
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QLabel, QCheckBox, QComboBox, QGroupBox
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
+
 import os
+import re
 import sys
 import json
 import multiprocessing
@@ -13,7 +16,7 @@ class MacroGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.app = QApplication.instance()  # Get the QApplication instance
-        self.stylesheets = ['StyleDefaultDark.qss', 'StyleDefaultLight.qss', 'StyleDarkColored.qss']  # List of .qss files
+        self.stylesheets = [file for file in os.listdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "styles")) if file.endswith('.qss')]
         self.current_stylesheet = 0  # Counter for the current .qss file
         self.setWindowTitle("Macro")
         font = QFont()
@@ -21,7 +24,9 @@ class MacroGUI(QMainWindow):
         
         # Def Style Dropdown Menu
         self.style_combobox = QComboBox(self)
-        self.style_combobox.addItems(['Default Dark', 'Default Light', 'Dark Colored'])
+        for file in self.stylesheets:
+            filename = os.path.splitext(file)[0]
+            self.style_combobox.addItem(filename)
         self.style_combobox.currentIndexChanged.connect(self.switch_stylesheet)
 
 
@@ -129,7 +134,7 @@ class MacroGUI(QMainWindow):
         }
         with open('settings.json', 'w') as f:
             json.dump(settings, f)
-
+    
 def main():
     app = QApplication(sys.argv)
 
