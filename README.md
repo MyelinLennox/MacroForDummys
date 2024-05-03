@@ -7,7 +7,7 @@ An esay macro used for gaming, programing, or just simplifying repetitive tasks.
 >By default the advanced settings are unticked and there are two buttons avalible.
 
 **Start/Stop recording or playback**
->Left clicking on the **_'Start/Stop Recording'_** or **_'Start/Stop playback'_** buttton will clear the current key its set to. >Press any key to then set that as the current hoykey.
+>Left clicking on the **_'Start/Stop Recording'_** or **_'Start/Stop playback'_** buttton will clear the current key its set to. Press any key to then set that as the current hoykey.
 
 
 ## Advanced settings
