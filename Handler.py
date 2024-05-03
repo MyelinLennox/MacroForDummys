@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QLabel, QCheckBox, QComboBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QLabel, QCheckBox, QComboBox, QGroupBox
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
 import os
@@ -15,16 +15,31 @@ class MacroGUI(QMainWindow):
         self.app = QApplication.instance()  # Get the QApplication instance
         self.stylesheets = ['StyleDefaultDark.qss', 'StyleDefaultLight.qss', 'StyleDarkColored.qss']  # List of .qss files
         self.current_stylesheet = 0  # Counter for the current .qss file
-
-        self.load_settings()
-
         self.setWindowTitle("Macro")
         font = QFont()
         font.setPointSize(18)  # Set font size
+        
+        # Def Style Dropdown Menu
+        self.style_combobox = QComboBox(self)
+        self.style_combobox.addItems(['Default Dark', 'Default Light', 'Dark Colored'])
+        self.style_combobox.currentIndexChanged.connect(self.switch_stylesheet)
 
-        spacer_top = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
+        # Def Advanced Settings GroupBox
+        self.advanced_settings_groupbox = QGroupBox("Advanced Settings", self)
+        self.advanced_settings_groupbox.setCheckable(True)  # Add a checkbox next to the title
+        self.advanced_settings_groupbox.setChecked(False)  # Initially unchecked
+        self.advanced_settings_groupbox.toggled.connect(self.toggle_advanced_settings)  # Connect toggled signal
+        
+        self.advanced_settings_groupbox_layout = QVBoxLayout()  # Use QVBoxLayout for the groupbox layout
+        self.advanced_settings_groupbox_layout.addWidget(self.style_combobox)  # Add the combobox to the groupbox layout
+        self.advanced_settings_groupbox.setLayout(self.advanced_settings_groupbox_layout)  # Set the layout to the groupbox
+        
+        # Def Spacer
+        vertical_spacer = QSpacerItem(0, 40, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        horizontal_spacer = QSpacerItem(40, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+
+        # Def Record Button
         self.record_button = QPushButton('Start/Stop Recording', self)
         self.record_button.setObjectName('RecordButton')
         self.record_button.setFont(font)  # Set font
@@ -32,6 +47,7 @@ class MacroGUI(QMainWindow):
         self.record_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Set size policy to Fixed
         self.record_button.clicked.connect(self.record_macro)  # Connect clicked signal
 
+        # Def Play Button
         self.play_button = QPushButton('Start/Stop Playing', self)
         self.play_button.setObjectName('PlayButton')
         self.play_button.setFont(font)  # Set font
@@ -39,44 +55,27 @@ class MacroGUI(QMainWindow):
         self.play_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Set size policy to Fixed
         self.play_button.clicked.connect(self.play_macro)  # Connect clicked signal
 
+        # Def Button Layout
         self.button_layout = QHBoxLayout()  # Use QHBoxLayout for buttons
-        self.button_layout.setSpacing(0)  # Set spacing to 0
+        self.button_layout.setSpacing(50)  # Set spacing to 0
         self.button_layout.addWidget(self.record_button)
         self.button_layout.addWidget(self.play_button)
-
-
+        self.button_layout.setAlignment(Qt.AlignCenter)  # Center the buttons horizontally
+        
+        # Layout Order
         self.layout = QVBoxLayout()  # Use QVBoxLayout for overall layout
-        self.layout.setSpacing(0)  # Set spacing to 0
-
-
-        self.layout.addItem(spacer_top)  # Add spacer at the top
+        self.layout.setContentsMargins(50, 50, 50, 50)  # Set margins around the border of the window
         self.layout.addLayout(self.button_layout)
-        self.layout.addItem(spacer)  # Add spacer at the bottom
-
-        # Create a QCheckBox
-        self.advanced_settings_check = QCheckBox(self)
-        self.advanced_settings_check.stateChanged.connect(self.toggle_advanced_settings)
-
-        # Create a QLabel
-        self.advanced_settings_label = QLabel("Advanced Settings", self)
-        self.advanced_settings_label.setEnabled(False)  # Initially disabled
-
-        # Create a QComboBox for switching stylesheets
-        self.style_combobox = QComboBox(self)
-        self.style_combobox.addItems(['Default Dark', 'Default Light', 'Dark Colored'])
-        self.style_combobox.currentIndexChanged.connect(self.switch_stylesheet)
-
-        # Add the QCheckBox, QLabel, and QComboBox to the layout
-        self.layout.addWidget(self.advanced_settings_check)
-        self.layout.addWidget(self.advanced_settings_label)
-        self.layout.addWidget(self.style_combobox)
-
+        self.layout.addItem(vertical_spacer)
+        self.layout.addWidget(self.advanced_settings_groupbox)  # Add the groupbox to the layout
+        self.layout.setAlignment(Qt.AlignTop)  # Align the layout to the top
+        
+        # Layout settings
+        self.layout.setSpacing(20)  # Set spacing to 0
         self.central_widget = QWidget()
         self.central_widget.setLayout(self.layout)
         self.setCentralWidget(self.central_widget)
-
         self.setFixedSize(500, 500)
-
         self.load_settings()
         self.switch_stylesheet(self.current_stylesheet)  # Apply the loaded stylesheet
 
@@ -97,10 +96,10 @@ class MacroGUI(QMainWindow):
 
     def toggle_advanced_settings(self, state):
         if state == Qt.Checked:
-            self.advanced_settings_label.setEnabled(True)
+            self.style_combobox.setEnabled(True)  # Enable the combobox
         else:
-            self.advanced_settings_label.setEnabled(False)
-
+            self.style_combobox.setEnabled(False)  # Disable the combobox
+        self.style_combobox.setEnabled(state)  # Enable or disable the combobox based on the state of the checkbox
         self.save_settings()
 
     def record_macro(self):
@@ -116,14 +115,17 @@ class MacroGUI(QMainWindow):
             with open('settings.json', 'r') as f:
                 settings = json.load(f)
                 self.current_stylesheet = settings.get('stylesheet', 0)
-                self.advanced_settings_check.setChecked(settings.get('advanced_settings', False))
+                self.style_combobox.setCurrentIndex(self.current_stylesheet)  # Set the current index
+                advanced_settings = settings.get('advanced_settings', False)
+                self.advanced_settings_groupbox.setChecked(advanced_settings)
+                self.style_combobox.setEnabled(advanced_settings)  # Enable or disable the combobox based on the advanced_settings
         except FileNotFoundError:
             pass  # It's okay if the file doesn't exist
 
     def save_settings(self):
         settings = {
             'stylesheet': self.current_stylesheet,
-            'advanced_settings': self.advanced_settings_check.isChecked()
+            'advanced_settings': self.advanced_settings_groupbox.isChecked()
         }
         with open('settings.json', 'w') as f:
             json.dump(settings, f)
