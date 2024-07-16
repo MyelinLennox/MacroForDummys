@@ -1,16 +1,44 @@
-from fileinput import filename
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy, QLabel, QCheckBox, QComboBox, QGroupBox
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtGui import QFont, QIcon, QKeySequence
 from PyQt5.QtCore import Qt
 
 import os
-import re
 import sys
 import json
-import multiprocessing
-import Macro
 
 app = QApplication(sys.argv)
+
+class KeyBindableButton(QPushButton):
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.main_text = text
+        self.key_text = '(unbound)'
+        self.temp_key_text = self.key_text
+        self.key_label = QLabel(self.key_text, self)
+        self.key_label.setFont(QFont('', 10))
+        self.key_label.setStyleSheet('color: lightgray')
+        self.key_label.setAlignment(Qt.AlignCenter)
+
+        # Set up layout
+        self.layout = QVBoxLayout(self)
+        self.layout.addStretch()
+        self.layout.addWidget(QLabel(self.main_text, self))
+        self.layout.addWidget(self.key_label)
+        self.layout.addStretch()
+        self.setLayout(self.layout)
+
+    def set_key_text(self, text):
+        self.key_text = text
+        self.key_label.setText(self.key_text)
+
+    def start_key_binding(self):
+        self.temp_key_text = self.key_text
+        self.set_key_text('Press any key...')
+        self.setEnabled(False)
+
+    def cancel_key_binding(self):
+        self.set_key_text(self.temp_key_text)
+        self.setEnabled(True)
 
 class MacroGUI(QMainWindow):
     def __init__(self):
@@ -20,8 +48,11 @@ class MacroGUI(QMainWindow):
         self.current_stylesheet = 0  # Counter for the current .qss file
         self.setWindowTitle("Macro")
         font = QFont()
-        font.setPointSize(18)  # Set font size
-        
+
+        # Key bindings
+        self.record_key = None
+        self.play_key = None
+
         # Def Style Dropdown Menu
         self.style_combobox = QComboBox(self)
         for file in self.stylesheets:
@@ -29,36 +60,35 @@ class MacroGUI(QMainWindow):
             self.style_combobox.addItem(filename)
         self.style_combobox.currentIndexChanged.connect(self.switch_stylesheet)
 
-
         # Def Advanced Settings GroupBox
         self.advanced_settings_groupbox = QGroupBox("Advanced Settings", self)
         self.advanced_settings_groupbox.setCheckable(True)  # Add a checkbox next to the title
         self.advanced_settings_groupbox.setChecked(False)  # Initially unchecked
         self.advanced_settings_groupbox.toggled.connect(self.toggle_advanced_settings)  # Connect toggled signal
-        
+
         self.advanced_settings_groupbox_layout = QVBoxLayout()  # Use QVBoxLayout for the groupbox layout
         self.advanced_settings_groupbox_layout.addWidget(self.style_combobox)  # Add the combobox to the groupbox layout
         self.advanced_settings_groupbox.setLayout(self.advanced_settings_groupbox_layout)  # Set the layout to the groupbox
-        
+
         # Def Spacer
         vertical_spacer = QSpacerItem(0, 40, QSizePolicy.Minimum, QSizePolicy.Minimum)
         horizontal_spacer = QSpacerItem(40, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         # Def Record Button
-        self.record_button = QPushButton('Start/Stop Recording', self)
+        self.record_button = KeyBindableButton('Start/Stop Recording', self)
         self.record_button.setObjectName('RecordButton')
         self.record_button.setFont(font)  # Set font
-        self.record_button.setFixedSize(175, 50)  # Adjust button size
+        self.record_button.setFixedSize(175, 75)  # Adjust button size
         self.record_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Set size policy to Fixed
-        self.record_button.clicked.connect(self.record_macro)  # Connect clicked signal
+        self.record_button.clicked.connect(self.wait_for_record_key)  # Connect clicked signal
 
         # Def Play Button
-        self.play_button = QPushButton('Start/Stop Playing', self)
+        self.play_button = KeyBindableButton('Start/Stop Playing', self)
         self.play_button.setObjectName('PlayButton')
         self.play_button.setFont(font)  # Set font
-        self.play_button.setFixedSize(175, 50)  # Adjust button size
+        self.play_button.setFixedSize(175, 75)  # Adjust button size
         self.play_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Set size policy to Fixed
-        self.play_button.clicked.connect(self.play_macro)  # Connect clicked signal
+        self.play_button.clicked.connect(self.wait_for_play_key)  # Connect clicked signal
 
         # Def Button Layout
         self.button_layout = QHBoxLayout()  # Use QHBoxLayout for buttons
@@ -66,7 +96,7 @@ class MacroGUI(QMainWindow):
         self.button_layout.addWidget(self.record_button)
         self.button_layout.addWidget(self.play_button)
         self.button_layout.setAlignment(Qt.AlignCenter)  # Center the buttons horizontally
-        
+
         # Layout Order
         self.layout = QVBoxLayout()  # Use QVBoxLayout for overall layout
         self.layout.setContentsMargins(50, 50, 50, 50)  # Set margins around the border of the window
@@ -74,7 +104,7 @@ class MacroGUI(QMainWindow):
         self.layout.addItem(vertical_spacer)
         self.layout.addWidget(self.advanced_settings_groupbox)  # Add the groupbox to the layout
         self.layout.setAlignment(Qt.AlignTop)  # Align the layout to the top
-        
+
         # Layout settings
         self.layout.setSpacing(20)  # Set spacing to 0
         self.central_widget = QWidget()
@@ -107,6 +137,34 @@ class MacroGUI(QMainWindow):
         self.style_combobox.setEnabled(state)  # Enable or disable the combobox based on the state of the checkbox
         self.save_settings()
 
+    def wait_for_record_key(self):
+        self.record_button.start_key_binding()
+        self.grabKeyboard()  # Capture keyboard input
+
+    def wait_for_play_key(self):
+        self.play_button.start_key_binding()
+        self.grabKeyboard()  # Capture keyboard input
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == Qt.Key_Escape:
+            if self.record_button.key_label.text() == 'Press any key...':
+                self.record_button.cancel_key_binding()
+            if self.play_button.key_label.text() == 'Press any key...':
+                self.play_button.cancel_key_binding()
+        else:
+            modifiers = QApplication.keyboardModifiers()
+            key_text = QKeySequence(modifiers | key).toString(QKeySequence.NativeText)
+
+            if self.record_button.key_label.text() == 'Press any key...':
+                self.record_button.set_key_text(key_text)
+                self.record_button.setEnabled(True)
+            elif self.play_button.key_label.text() == 'Press any key...':
+                self.play_button.set_key_text(key_text)
+                self.play_button.setEnabled(True)
+
+        self.releaseKeyboard()  # Release keyboard input
+
     def record_macro(self):
         # Implement recording functionality here
         print("Recording...")
@@ -134,7 +192,7 @@ class MacroGUI(QMainWindow):
         }
         with open('settings.json', 'w') as f:
             json.dump(settings, f)
-    
+
 def main():
     app = QApplication(sys.argv)
 
@@ -151,4 +209,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
