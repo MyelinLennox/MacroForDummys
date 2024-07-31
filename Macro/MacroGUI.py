@@ -3,6 +3,7 @@ from tkinter import ttk
 import os
 import sys
 
+
 class Main(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
@@ -27,10 +28,16 @@ class Main(tk.Frame):
         self.UseKeyboardBool = tk.BooleanVar(value=self.InterpratSettings(4))
         self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(4, self.UseKeyboardBool.get()))
 
+
         # STYLE FIX ---------------------------------------------------------------------------------------------------------------------------------
+        
+
         self.Style.configure("Bigger.TButton", font=("-size", 20))
 
+        
         # OUTLINE FRAME -----------------------------------------------------------------------------------------------------------------------------
+        
+
         # Frame
         self.MainFrame = ttk.Frame(self, padding=10, relief="ridge")
         self.MainFrame.grid(sticky="nsew", padx=10, pady=10)
@@ -49,9 +56,12 @@ class Main(tk.Frame):
 
         # Advanced settings frame
         self.AdvancedSettingsFrame = ttk.LabelFrame(self.MainFrame, text="Advanced Settings", padding=(20, 10))
-        self.AdvancedSettingsFrame.grid(row=3, column=0, pady=(30, 0), columnspan=2, sticky="nsew")
+        self.AdvancedSettingsFrame.grid(row=3, column=0, pady=(30,0), columnspan=2, sticky="nsew")
+
 
         # ADVANCED SETTINGS -------------------------------------------------------------------------------------------------------------------------
+        
+        
         self.ComboBoxLabel = ttk.Label(self.AdvancedSettingsFrame, text="Theme:", font=("-size", 11))
         self.ComboBoxLabel.grid(row=0, column=0, sticky="w")
 
@@ -67,17 +77,23 @@ class Main(tk.Frame):
         #self.ComboBox.bind("<<ComboboxSelected>>", self.ComboboxShitFix)
         self.ComboBox.bind("<<ComboboxSelected>>", self.ChangeTheme)
 
+
         # FRAMES ------------------------------------------------------------------------------------------------------------------------------------
+        
+        
         self.DarkModeToggleFrame = ttk.Frame(self.AdvancedSettingsFrame)
-        self.DarkModeToggleFrame.grid(row=1, column=0, columnspan=3, pady=(10, 0), sticky="ew")
+        self.DarkModeToggleFrame.grid(row=1, column=0, columnspan=3, pady=(10,0), sticky="ew")
 
         self.ThemesSeperator = ttk.Separator(self.AdvancedSettingsFrame, orient="horizontal")
-        self.ThemesSeperator.grid(row=2, column=0, columnspan=4, pady=(25, 25), sticky="ew")
+        self.ThemesSeperator.grid(row=2, column=0, columnspan=4, pady=(25,25), sticky="ew")
 
         self.KeyboardMouseFrame = ttk.Frame(self.AdvancedSettingsFrame)
-        self.KeyboardMouseFrame.grid(row=3, column=0, columnspan=3, pady=(10, 0), sticky="ew")
+        self.KeyboardMouseFrame.grid(row=3, column=0, columnspan=3, pady=(10,0), sticky="ew")
+
 
         # CONTENT -----------------------------------------------------------------------------------------------------------------------------------
+        
+        
         self.DarkModeToggleLabel = ttk.Label(self.DarkModeToggleFrame, text="Dark Mode:", font=("-size", 11))
         self.DarkModeToggleLabel.grid(row=0, column=0, sticky="w", pady=(0, 15))
 
@@ -85,21 +101,26 @@ class Main(tk.Frame):
         self.DarkModeToggle.grid(row=0, column=1, padx=5, sticky="ew", pady=(0, 15))
 
         self.ToggleMouseLabel = ttk.Label(self.KeyboardMouseFrame, text="Use Mouse:", font=("-size", 11))
-        self.ToggleMouseLabel.grid(row=2, column=0, sticky="w", pady=5)
+        self.ToggleMouseLabel.grid(row=2, column=0, sticky="w",pady=5)
 
         self.ToggleMouse = ttk.Checkbutton(self.KeyboardMouseFrame, style='Switch.TCheckbutton', variable=self.UseMouseBool)
-        self.ToggleMouse.grid(row=2, column=1, padx=5, sticky="ew", pady=5)
+        self.ToggleMouse.grid(row=2, column=1, padx=5, sticky="ew",pady=5)
 
         self.ToggleKeyboardLabel = ttk.Label(self.KeyboardMouseFrame, text="Use Keyboard:", font=("-size", 11))
-        self.ToggleKeyboardLabel.grid(row=3, column=0, sticky="w", pady=5)
+        self.ToggleKeyboardLabel.grid(row=3, column=0, sticky="w",pady=5)
 
         self.ToggleKeyboard = ttk.Checkbutton(self.KeyboardMouseFrame, style='Switch.TCheckbutton', variable=self.UseKeyboardBool)
-        self.ToggleKeyboard.grid(row=3, column=1, padx=5, sticky="ew", pady=5)
+        self.ToggleKeyboard.grid(row=3, column=1, padx=5, sticky="ew",pady=5)
+
 
         # THEME LOAD --------------------------------------------------------------------------------------------------------------------------------
+        
+        
         self.ChangeTheme()  # Load theme on startup
 
+
 # SETTINGS LOADER -----------------------------------------------------------------------------------------------------------------------------------
+
     @staticmethod
     def InterpratSettings(LineNumber=None):
         with open(os.path.join(os.path.dirname(__file__), "Settings"), 'r') as file:
@@ -137,7 +158,10 @@ class Main(tk.Frame):
         with open(settings_path, 'w') as file:
             file.writelines(lines)
 
+
 # THEME CHANGE --------------------------------------------------------------------------------------------------------------------------------------
+
+
     def ChangeTheme(self, *args):
         self.Style = ttk.Style(self)
         SelectedTheme = self.ComboBox.get()
@@ -153,14 +177,9 @@ class Main(tk.Frame):
             self.root.tk.call("set_theme", ThemeMode)
         except:
             ttk.Style().theme_use(f"{SelectedTheme.lower()}-{ThemeMode}")
+        
 
-        self.configure_text_widget_styles()  # Configure text widget styles after setting the theme
         print(f"Updated Theme: {SelectedTheme}, Mode: {ThemeMode}")
-
-    def configure_text_widget_styles(self):
-        self.Style.configure("TLabel", background="#2e2e2e", foreground="white")
-        self.Style.configure("TEntry", background="#2e2e2e", foreground="white")
-        self.Style.configure("TText", background="#2e2e2e", foreground="white")
 
     def ComboboxShitFix(self, *args):
         self.SaveSettings(1, self.ComboBox.get())
@@ -182,7 +201,14 @@ class Main(tk.Frame):
         os.execl(python, python, *sys.argv)
 
 
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.resizable(False, False)
-   
+    root.iconbitmap(os.path.join(os.path.dirname(__file__), "Icon.ico"))
+    root.title("Macro")
+
+    Interface = Main(root)
+    Interface.pack(fill="both", expand=True)
+
+    root.mainloop()
