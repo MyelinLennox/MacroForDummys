@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+from PIL import Image, ImageTk
 import os
 import sys
+import datetime
 
 class Main(tk.Frame):
     def __init__(self, root):
@@ -9,143 +11,239 @@ class Main(tk.Frame):
         self.root = root
         self.Style = ttk.Style(self)
         self.ReloadPending = False
+        self.CurrentBindingButton = None  # Track the button currently being bound to a hotkey
 
         ThemeFolder = os.path.join(os.path.dirname(__file__), "Themes")
-        self.ComboBoxList = []
+        self.ThemeComboBoxList = []
         if os.path.exists(ThemeFolder):
             for folder_name in os.listdir(ThemeFolder):
                 if os.path.isdir(os.path.join(ThemeFolder, folder_name)):
-                    self.ComboBoxList.append(folder_name)
+                    self.ThemeComboBoxList.append(folder_name)
 
-        self.DarkLightModeBool = tk.BooleanVar(value=self.InterpratSettings(2))
-        self.DarkLightModeBool.trace_add("write", self.DarkLightModeScheduler)
+        self.RecordingsComboBoxList = []
+        if os.path.exists(os.path.join(os.path.dirname(__file__), "Recordings")):
+            for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "Recordings")):
+                if os.path.isfile(os.path.join(os.path.dirname(__file__), "Recordings", file_name)):
+                    self.RecordingsComboBoxList.append(file_name)
+        self.RecordingsComboBoxList.append("None")
 
-        self.UseMouseBool = tk.BooleanVar(value=self.InterpratSettings(3))
-        self.UseMouseBool.trace_add("write", lambda *args: self.SaveSettings(3, self.UseMouseBool.get()))
+        self.DarkLightModeBool = tk.BooleanVar(value=self.InterpratSettings(3))
+        self.DarkLightModeBool.trace_add("write", lambda *args: self.ReloadWindowScheduler())
 
-        self.UseKeyboardBool = tk.BooleanVar(value=self.InterpratSettings(4))
-        self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(4, self.UseKeyboardBool.get()))
+        self.UseMouseBool = tk.BooleanVar(value=self.InterpratSettings(4))
+        self.UseMouseBool.trace_add("write", lambda *args: self.SaveSettings(4, self.UseMouseBool.get()))
+        self.UseMouseBool.trace_add("write", lambda *args: self.SaveHeader(4, self.UseMouseBool.get()))
 
-        #self.UseConsoleBool = tk.BooleanVar(value=self.InterpratSettings(5))
-        #self.UseConsoleBool.trace_add("write", self.ConsoleScheduler)
+        self.UseKeyboardBool = tk.BooleanVar(value=self.InterpratSettings(5))
+        self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(5, self.UseKeyboardBool.get()))
+        self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveHeader(5, self.UseKeyboardBool.get()))
 
-        self.root.bind("<Configure>", lambda *args: self.SaveSettings(6, self.root.geometry()))
-        self.root.geometry(self.InterpratSettings(6))
+        self.UseConsoleBool = tk.BooleanVar(value=self.InterpratSettings(6))
+        
+        RecordingComboboxState = "readonly"
 
         # OUTLINE FRAME -----------------------------------------------------------------------------------------------------------------------------
 
-        self.MainFrame = ttk.Frame(self, padding=10, relief="ridge")
+        self.MainFrame = ttk.Frame(self, padding=10, relief='solid', borderwidth=1)
         self.MainFrame.grid(sticky="nsew", padx=10, pady=10)
+        self.bind("<Configure>", self.ConfigureRootGeometry)
+
+        # OUTLINE CONTENT ---------------------------------------------------------------------------------------------------------------------------
 
         self.Header = ttk.Label(self.MainFrame, text="Macro For Dummys", justify="center", font=("-size", 25, "-weight", "bold"))
-        self.Header.grid(row=0, column=0, pady=(15, 25), columnspan=2, sticky="nsew", padx=50)
+        self.Header.grid(row=0, column=0, pady=(15, 25), columnspan=3, sticky="nsew", padx=50)
 
         self.RecordButton = ttk.Button(self.MainFrame, text="Start/Stop Recording", style="Bigger.TButton", width=20)
-        self.RecordButton.grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(20, 35), ipady=(10))
-
+        self.RecordButton.grid(row=1, column=0, sticky="ew", padx=(10,0), ipady=12, ipadx=12)
+        self.RecordButton.bind("<Button-1>", self.PrepareForBinding)  # Change this line
+        
         self.PlaybackButton = ttk.Button(self.MainFrame, text="Start/Stop Playback", style="Bigger.TButton", width=20)
-        self.PlaybackButton.grid(row=1, column=1, sticky="ew", padx=(10, 0), pady=(20, 35), ipady=(10))
-
-        self.AdvancedSettingsFrame = ttk.LabelFrame(self.MainFrame, text="Advanced Settings", padding=(20, 10))
-        self.AdvancedSettingsFrame.grid(row=2, column=0, pady=(30,0), columnspan=2, sticky="nsew")
-
-        # ADVANCED SETTINGS -------------------------------------------------------------------------------------------------------------------------
+        self.PlaybackButton.grid(row=1, column=2, sticky="ew", padx=(0,10), ipady=12, ipadx=12)
+        self.PlaybackButton.bind("<Button-1>", self.PrepareForBinding)  # Change this line
         
-        self.ComboBoxLabel = ttk.Label(self.AdvancedSettingsFrame, text="Theme:", font=("-size", 11))
-        self.ComboBoxLabel.grid(row=0, column=0, sticky="w")
-
-        self.ComboBox = ttk.Combobox(self.AdvancedSettingsFrame, state="readonly", values=self.ComboBoxList)
-        self.ComboBox.grid(row=0, column=1, padx=5, ipady=5, sticky="ew")
-        self.ComboBox.current(self.ComboBoxList.index(self.InterpratSettings(1)))
-        self.ComboBox.bind("<<ComboboxSelected>>", self.ChangeTheme)
-
-        # FRAMES ------------------------------------------------------------------------------------------------------------------------------------
+        # SETTINGS FRAMES ---------------------------------------------------------------------------------------------------------------------------
         
-        self.DarkModeToggleFrame = ttk.Frame(self.AdvancedSettingsFrame)
-        self.DarkModeToggleFrame.grid(row=1, column=0, columnspan=3, pady=(5), sticky="ew")
+        self.SettingsFrame = ttk.LabelFrame(self.MainFrame, text="Settings", padding=(20, 10), relief='ridge', borderwidth=2, labelanchor='n')
+        self.SettingsFrame.grid(row=2, column=0, pady=(30, 0), columnspan=3, sticky="ew")
 
-        self.ThemesSeperator = ttk.Separator(self.AdvancedSettingsFrame, orient="horizontal")
-        self.ThemesSeperator.grid(row=2, column=0, columnspan=3, pady=(10), sticky="ew")
+        self.RecordingsCombooxFrame = ttk.Frame(self.SettingsFrame)
+        self.RecordingsCombooxFrame.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
 
-        self.KeyboardMouseFrame = ttk.Frame(self.AdvancedSettingsFrame)
-        self.KeyboardMouseFrame.grid(row=3, column=0, columnspan=3, pady=(5), sticky="ew")
+        self.ThemesSeperator = ttk.Separator(self.SettingsFrame, orient="horizontal")
+        self.ThemesSeperator.grid(row=2, column=0, columnspan=3, pady=10, sticky="ew")
 
-        #self.ThemesSeperator = ttk.Separator(self.AdvancedSettingsFrame, orient="horizontal")
-        #self.ThemesSeperator.grid(row=4, column=0, columnspan=3, pady=(10), sticky="ew")
+        self.ThemeComboboxFrame = ttk.Frame(self.SettingsFrame)
+        self.ThemeComboboxFrame.grid(row=3, column=0, columnspan=3, pady=5, sticky="ew")
 
-        #self.ConsoleToggleFrame = ttk.Frame(self.AdvancedSettingsFrame)
-        #self.ConsoleToggleFrame.grid(row=5, column=0, columnspan=3, pady=(5), sticky="ew")
+        self.DarkModeToggleFrame = ttk.Frame(self.SettingsFrame)
+        self.DarkModeToggleFrame.grid(row=4, column=0, columnspan=3, pady=5, sticky="ew")
 
-        # ADVANCED CONTENT --------------------------------------------------------------------------------------------------------------------------
+        self.ThemesSeperator = ttk.Separator(self.SettingsFrame, orient="horizontal")
+        self.ThemesSeperator.grid(row=5, column=0, columnspan=3, pady=10, sticky="ew")
+
+        self.UseMouseFrame = ttk.Frame(self.SettingsFrame)
+        self.UseMouseFrame.grid(row=6, column=0, columnspan=3, pady=5, sticky="ew")
+        self.UseKeyboardFrame = ttk.Frame(self.SettingsFrame)
+        self.UseKeyboardFrame.grid(row=7, column=0, columnspan=3, pady=5, sticky="ew")
+
+        # SETTINGS CONTENT --------------------------------------------------------------------------------------------------------------------------
         
+        self.RecordingsComboBoxLabel = ttk.Label(self.RecordingsCombooxFrame, text="Recording:", font=("-size", 11))
+        self.RecordingsComboBoxLabel.grid(row=0, column=0, sticky="w")
+
+        self.RecordingsComboBox = ttk.Combobox(self.RecordingsCombooxFrame, values=self.RecordingsComboBoxList, state=RecordingComboboxState)
+        self.RecordingsComboBox.grid(row=0, column=1, padx=(15,5), ipady=5, sticky="ew")
+        self.RecordingsComboBox.current(self.RecordingsComboBoxList.index("None"))
+        self.RecordingsComboBox.bind("<<ComboboxSelected>>", self.ChangeSelectedRecording)
+        self.RecordingsComboBox.bind("<KeyPress>", self.SaveEditing)
+
+        self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFile.png"))
+        self.CreateFileImage = self.CreateFileImage.resize((25, 25), Image.LANCZOS)
+        self.CreateFileImageTk = ImageTk.PhotoImage(self.CreateFileImage)
+        self.CreateFileButton = ttk.Button(self.RecordingsCombooxFrame, image=self.CreateFileImageTk, width=5)
+        self.CreateFileButton.bind("<Button-1>", self.CreateNewRecording, self.ChangeSelectedRecording)
+        self.CreateFileButton.grid(row=0, column=2, padx=5, sticky="ew")
+
+        self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFile.png"))
+        self.DeleteFileImage = self.DeleteFileImage.resize((25, 25), Image.LANCZOS)
+        self.DeleteFileImageTk = ImageTk.PhotoImage(self.DeleteFileImage)
+        self.DeleteFileButton = ttk.Button(self.RecordingsCombooxFrame, image=self.DeleteFileImageTk, width=5)
+        self.DeleteFileButton.bind("<Button-1>", self.DeleteRecording)
+        self.DeleteFileButton.grid(row=0, column=3, padx=5, sticky="ew")
+
+        self.ThemeComboBoxLabel = ttk.Label(self.ThemeComboboxFrame, text="Theme:", font=("-size", 11))
+        self.ThemeComboBoxLabel.grid(row=0, column=0, sticky="w")
+
+        self.ThemeComboBox = ttk.Combobox(self.ThemeComboboxFrame, state="readonly", values=self.ThemeComboBoxList)
+        self.ThemeComboBox.grid(row=0, column=1, padx=5, ipady=5, sticky="ew")
+        self.ThemeComboBox.current(self.ThemeComboBoxList.index(self.InterpratSettings(2)))
+        self.ThemeComboBox.bind("<<ComboboxSelected>>", self.ChangeTheme)
+
         self.DarkModeToggleLabel = ttk.Label(self.DarkModeToggleFrame, text="Dark Mode:", font=("-size", 11))
-        self.DarkModeToggleLabel.grid(row=0, column=0, sticky="w", pady=(5))
+        self.DarkModeToggleLabel.grid(row=0, column=0, sticky="w", pady=5)
 
         self.DarkModeToggle = ttk.Checkbutton(self.DarkModeToggleFrame, style='Switch.TCheckbutton', variable=self.DarkLightModeBool)
-        self.DarkModeToggle.grid(row=0, column=1, padx=5, sticky="ew", pady=(5))
+        self.DarkModeToggle.grid(row=0, column=1, padx=5, sticky="ew", pady=5)
 
-        self.ToggleMouseLabel = ttk.Label(self.KeyboardMouseFrame, text="Use Mouse:", font=("-size", 11))
-        self.ToggleMouseLabel.grid(row=2, column=0, sticky="w",pady=5)
+        self.ToggleMouseLabel = ttk.Label(self.UseMouseFrame, text="Use Mouse:", font=("-size", 11))
+        self.ToggleMouseLabel.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.ToggleMouse = ttk.Checkbutton(self.KeyboardMouseFrame, style='Switch.TCheckbutton', variable=self.UseMouseBool)
-        self.ToggleMouse.grid(row=2, column=1, padx=5, sticky="ew",pady=5)
+        self.ToggleMouse = ttk.Checkbutton(self.UseMouseFrame, style='Switch.TCheckbutton', variable=self.UseMouseBool)
+        self.ToggleMouse.grid(row=0, column=1, padx=5, sticky="e", pady=5)
 
-        self.ToggleKeyboardLabel = ttk.Label(self.KeyboardMouseFrame, text="Use Keyboard:", font=("-size", 11))
-        self.ToggleKeyboardLabel.grid(row=3, column=0, sticky="w",pady=5)
+        self.ToggleKeyboardLabel = ttk.Label(self.UseKeyboardFrame, text="Use Keyboard:", font=("-size", 11))
+        self.ToggleKeyboardLabel.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.ToggleKeyboard = ttk.Checkbutton(self.KeyboardMouseFrame, style='Switch.TCheckbutton', variable=self.UseKeyboardBool)
-        self.ToggleKeyboard.grid(row=3, column=1, padx=5, sticky="ew",pady=5)
-
-        #self.ToggleConsoleLabel = ttk.Label(self.ConsoleToggleFrame, text="Show Console:", font=("-size", 11))
-        #self.ToggleConsoleLabel.grid(row=4, column=0, sticky="w",pady=5)
-
-        #self.ToggleConsole = ttk.Checkbutton(self.ConsoleToggleFrame, style='Switch.TCheckbutton', variable=self.UseConsoleBool)
-        #self.ToggleConsole.grid(row=4, column=1, padx=5, sticky="ew",pady=5)
+        self.ToggleKeyboard = ttk.Checkbutton(self.UseKeyboardFrame, style='Switch.TCheckbutton', variable=self.UseKeyboardBool)
+        self.ToggleKeyboard.grid(row=0, column=1, padx=5, sticky="e", pady=5)
 
         # THEME LOAD --------------------------------------------------------------------------------------------------------------------------------
 
         self.ChangeTheme()
+        self.ConfigureRootGeometry()
 
     @staticmethod
     def InterpratSettings(LineNumber=None):
-        with open(os.path.join(os.path.dirname(__file__), "Settings"), 'r') as file:
-            Lines = file.readlines()
+        SettingsFilePath = os.path.join(os.path.dirname(__file__), "Settings.ini")
 
-        InterpretedLines = []
-        for line in Lines:
-            StrippedLine = line.strip()
-            if StrippedLine == "True":
-                InterpretedLines.append(True)
-            elif StrippedLine == "False":
-                InterpretedLines.append(False)
-            else:
-                InterpretedLines.append(StrippedLine)
+        with open(SettingsFilePath, "r") as SettingsFile:
+            SettingsList = []
+            for line in SettingsFile:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if ':' in line:
+                    _, value = line.split(':', 1)
+                    SettingsList.append(value.strip())
 
         if LineNumber is not None:
-            if 1 <= LineNumber <= len(InterpretedLines):
-                return InterpretedLines[LineNumber - 1]
+            if 1 <= LineNumber <= len(SettingsList):
+                return SettingsList[LineNumber - 1]
             else:
                 raise IndexError("Line number out of range")
-
-        return InterpretedLines
+        return SettingsList
 
     @staticmethod
     def SaveSettings(LineNumber, Value):
-        SettingsFile = os.path.join(os.path.dirname(__file__), "Settings")
-        with open(SettingsFile, 'r') as file:
-            lines = file.readlines()
+        SettingsFilePath = os.path.join(os.path.dirname(__file__), "Settings.ini")
+        SettingsList = Main.InterpratSettings()
 
-        if LineNumber is not None and 1 <= LineNumber <= len(lines):
-            lines[LineNumber - 1] = f"{Value}\n"
+        if 1 <= LineNumber <= len(SettingsList):
+            SettingsList[LineNumber - 1] = Value
         else:
             raise IndexError("Line number out of range")
 
-        with open(SettingsFile, 'w') as file:
-            file.writelines(lines)
+        with open(SettingsFilePath, "r") as SettingsFile:
+            lines = SettingsFile.readlines()
+
+        with open(SettingsFilePath, "w") as SettingsFile:
+            SettingsIndex = 0
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    if ':' in line:
+                        prefix, _ = line.split(':', 1)
+                        SettingsFile.write(f"{prefix}: {SettingsList[SettingsIndex]}\n")
+                        SettingsIndex += 1
+                    else:
+                        SettingsFile.write(line + "\n")
+                else:
+                    SettingsFile.write(line + "\n")
+
+    def ChangeSelectedRecording(self, *args):
+        SelectedRecording = self.RecordingsComboBox.get()
+        if SelectedRecording == "None":
+            self.RecordingsComboBox.config(state="readonly")
+            self.DisableEditing()
+        else:
+            self.RecordingsComboBox.config(state="normal")
+            self.EnableEditing(SelectedRecording)
+    
+        self.SaveSettings(1, SelectedRecording)
+
+    def CreateNewRecording(self, event=None):
+        now = datetime.datetime.now()
+        filename = f"Recording_{now.strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+        filepath = os.path.join(os.path.dirname(__file__), "Recordings", filename)
+
+        with open(filepath, 'w') as new_file:
+            new_file.write("")  # Create an empty file
+
+        self.RecordingsComboBoxList.append(filename)
+        self.RecordingsComboBox.config(values=self.RecordingsComboBoxList)
+        self.RecordingsComboBox.set(filename)
+
+        self.SaveSettings(1, filename)
+
+    def DeleteRecording(self, event=None):
+        SelectedRecording = self.RecordingsComboBox.get()
+        if SelectedRecording != "None":
+            os.remove(os.path.join(os.path.dirname(__file__), "Recordings", SelectedRecording))
+
+            self.RecordingsComboBoxList.remove(SelectedRecording)
+            self.RecordingsComboBox.config(values=self.RecordingsComboBoxList)
+
+            self.RecordingsComboBox.set("None")
+
+            self.SaveSettings(1, "None")
+            self.DisableEditing()
+
+    def DisableEditing(self):
+        self.RecordButton.config(state="disabled")
+        self.PlaybackButton.config(state="disabled")
+
+    def EnableEditing(self, filename):
+        self.RecordButton.config(state="normal")
+        self.PlaybackButton.config(state="normal")
+
+    def SaveEditing(self, filename):
+        SelectedRecording = self.RecordingsComboBox.get()
+        os.rename(os.path.join(os.path.dirname(__file__), "Recordings", filename), os.path.join(os.path.dirname(__file__), "Recordings", SelectedRecording))
+        self.SaveSettings(1, filename)
 
     def ChangeTheme(self, *args):
         self.Style = ttk.Style(self)
-        SelectedTheme = self.ComboBox.get()
+        SelectedTheme = self.ThemeComboBox.get()
         ThemePath = os.path.join(os.path.dirname(__file__), "Themes", SelectedTheme, f"{SelectedTheme}.tcl")
 
         if self.DarkLightModeBool.get():
@@ -156,90 +254,47 @@ class Main(tk.Frame):
         try:
             self.root.tk.call("source", ThemePath)
             self.root.tk.call("set_theme", ThemeMode)
-        except:
-            ttk.Style().theme_use(f"{SelectedTheme.lower()}-{ThemeMode}")
+        except Exception as e:
+            print(f"Failed to load theme from {ThemePath}: {e}")
+            try:
+                ttk.Style().theme_use(f"{SelectedTheme.lower()}-{ThemeMode}")
+            except Exception as e:
+                print(f"Fallback theme loading failed: {e}")
+                self.ReloadWindowScheduler()
+        self.ConfigureRootGeometry()
 
-        self.MainFrame.update()
-        canvas_width = self.MainFrame.winfo_width()
-        canvas_height = self.MainFrame.winfo_height()
-        self.root.geometry(f"{canvas_width+20}x{canvas_height+20}")
-
-        # Fix vulnerable widgets, disgraceful hack (I have no idea why this happens, too lazy to find out)
-        self.FixThemes()
-        
-    def FixThemes(self):
-        Widgets = [self.root]
-        while Widgets:
-            widget = Widgets.pop()
-
-            if isinstance(widget, (tk.Label, tk.Button, tk.Entry, tk.Text, ttk.Label, ttk.Button, ttk.Entry)):
-                try:
-                    widget.config(background=self.Style.lookup("TFrame", "background"))
-                except Exception as e:
-                    try:
-                        widget.config(bg=self.Style.lookup("TFrame", "background"))
-                    except Exception as e:
-                        print(f"Failed to process widget: {widget}")
-                        pass
-            
-            if isinstance(widget, (tk.Label, tk.Button, tk.Entry, tk.Text, ttk.Label, ttk.Button, ttk.Entry)):
-                try:
-                    widget.config(foreground=self.Style.lookup("TFrame", "foreground"))
-                except Exception as e:
-                    try:
-                        widget.config(fg=self.Style.lookup("TFrame", "foreground"))
-                    except Exception as e:
-                        print(f"Failed to process widget: {widget}")
-                        pass
-
-            if isinstance(widget, (tk.Frame, ttk.Frame)):
-                try:
-                    widget.config(background=self.Style.lookup("TFrame", "background"))
-                except Exception as e:
-                    try:
-                        widget.config(bg=self.Style.lookup("TFrame", "background"))
-                    except Exception as e:
-                        print(f"Failed to process widget: {widget}")
-                        pass
-
-            Widgets.extend(widget.winfo_children())
-
-    def DarkLightModeScheduler(self, *args):
-        self.SaveSettings(2, self.DarkLightModeBool.get())
-        self.ReloadRefreshSchedule()
-
-    def ConsoleScheduler(self, *args):
-        self.SaveSettings(5, self.UseConsoleBool.get())
-        self.ReloadRefreshSchedule()
-
-    def ReloadRefreshSchedule(self):
+    def ReloadWindowScheduler(self, *args):
         if not self.ReloadPending:
-            self.ReloadPending = True
-            self.root.after(10, self.RefreshWindow)
+            self.root.after(300, self.ReloadWindow)
 
-    def RefreshWindow(self):
-        self.ReloadPending = False
+    def ReloadWindow(self):
+        self.SaveSettings(2, self.ThemeComboBox.get())
+        self.SaveSettings(3, self.DarkLightModeBool.get())
         self.root.quit()
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
-        Python = sys.executable
-        PythonW = Python.replace("python.exe", "pythonw.exe")
+    def ConfigureRootGeometry(self, event=None):
+        self.root.update_idletasks()
 
-        #f.flush()
-        #os.fsync(f.fileno())
-        os.execl(Python, Python, *sys.argv)
-        #if self.UseConsoleBool.get():
-        #    os.execl(Python, Python, *sys.argv)
-        #else:
-        #    os.execl(PythonW, PythonW, *sys.argv)
+        FrameWidth = self.MainFrame.winfo_width()
+        FrameHeight = self.MainFrame.winfo_height()
+
+        Width = FrameWidth + 20
+        Height = FrameHeight + 20
+
+        self.root.minsize(Width, Height)
+
+        ScreenWidth = self.root.winfo_screenwidth()
+        ScreenHeight = self.root.winfo_screenheight()
+
+        X = (ScreenWidth // 2) - (Width // 2)
+        Y = (ScreenHeight // 2) - (Height // 2)
+
+        self.root.geometry(f"{Width}x{Height}+{X}+{Y}")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.resizable(False, False)
-    root.iconbitmap(os.path.join(os.path.dirname(__file__), "Icon.ico"))
-    root.title("Macro")
-
-    Interface = Main(root)
-    Interface.pack(fill="both", expand=True)
-
+    root.title("Macro For Dummys")
+    app = Main(root)
+    app.pack(fill="both", expand=True)
     root.mainloop()
-
