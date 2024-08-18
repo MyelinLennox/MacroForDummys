@@ -1,6 +1,6 @@
 # Macro For Dummys
 
-An esay macro used for gaming, programing, or just simplifying repetitive tasks.
+An easy macro used for gaming, programing, or just simplifying repetitive tasks.
 
 
 ## Basic controls
