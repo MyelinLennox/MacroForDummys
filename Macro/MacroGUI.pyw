@@ -1,9 +1,10 @@
+from msilib import Directory
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+
 import os
 import sys
-import datetime
 
 class Main(tk.Frame):
     def __init__(self, root):
@@ -22,9 +23,9 @@ class Main(tk.Frame):
 
         self.RecordingsComboBoxList = []
         if os.path.exists(os.path.join(os.path.dirname(__file__), "Recordings")):
-            for file_name in os.listdir(os.path.join(os.path.dirname(__file__), "Recordings")):
-                if os.path.isfile(os.path.join(os.path.dirname(__file__), "Recordings", file_name)):
-                    self.RecordingsComboBoxList.append(file_name)
+            for File in os.listdir(os.path.join(os.path.dirname(__file__), "Recordings")):
+                if os.path.isfile(os.path.join(os.path.dirname(__file__), "Recordings", File)):
+                    self.RecordingsComboBoxList.append(File)
         self.RecordingsComboBoxList.append("None")
 
         self.DarkLightModeBool = tk.BooleanVar(value=self.InterpratSettings(3))
@@ -42,29 +43,18 @@ class Main(tk.Frame):
         
         RecordingComboboxState = "readonly"
 
-        # OUTLINE FRAME -----------------------------------------------------------------------------------------------------------------------------
+        # FRAMES -----------------------------------------------------------------------------------------------------------------------------
 
         self.MainFrame = ttk.Frame(self, padding=10, relief='solid', borderwidth=1)
         self.MainFrame.grid(sticky="nsew", padx=10, pady=10)
         self.bind("<Configure>", self.ConfigureRootGeometry)
+        self.MainFrame.after(100, self.SetupSubtext)
 
-        # OUTLINE CONTENT ---------------------------------------------------------------------------------------------------------------------------
+        self.RecordButtonTextFrame = ttk.Frame(self)
+        self.PlaybackButtonTextFrame = ttk.Frame(self)
 
-        self.Header = ttk.Label(self.MainFrame, text="Macro For Dummys", justify="center", font=("-size", 25, "-weight", "bold"))
-        self.Header.grid(row=0, column=0, pady=(15, 25), columnspan=3, sticky="nsew", padx=50)
-
-        self.RecordButton = ttk.Button(self.MainFrame, text="Start/Stop Recording", style="Bigger.TButton", width=20)
-        self.RecordButton.grid(row=1, column=0, sticky="ew", padx=(10,0), ipady=12, ipadx=12)
-        self.RecordButton.bind("<Button-1>", self.PrepareForBinding)  # Change this line
-        
-        self.PlaybackButton = ttk.Button(self.MainFrame, text="Start/Stop Playback", style="Bigger.TButton", width=20)
-        self.PlaybackButton.grid(row=1, column=2, sticky="ew", padx=(0,10), ipady=12, ipadx=12)
-        self.PlaybackButton.bind("<Button-1>", self.PrepareForBinding)  # Change this line
-        
-        # SETTINGS FRAMES ---------------------------------------------------------------------------------------------------------------------------
-        
         self.SettingsFrame = ttk.LabelFrame(self.MainFrame, text="Settings", padding=(20, 10), relief='ridge', borderwidth=2, labelanchor='n')
-        self.SettingsFrame.grid(row=2, column=0, pady=(30, 0), columnspan=3, sticky="ew")
+        self.SettingsFrame.grid(row=3, column=0, pady=(30, 0), columnspan=3, sticky="ew")
 
         self.RecordingsCombooxFrame = ttk.Frame(self.SettingsFrame)
         self.RecordingsCombooxFrame.grid(row=1, column=0, columnspan=3, pady=5, sticky="ew")
@@ -83,10 +73,34 @@ class Main(tk.Frame):
 
         self.UseMouseFrame = ttk.Frame(self.SettingsFrame)
         self.UseMouseFrame.grid(row=6, column=0, columnspan=3, pady=5, sticky="ew")
+        
         self.UseKeyboardFrame = ttk.Frame(self.SettingsFrame)
         self.UseKeyboardFrame.grid(row=7, column=0, columnspan=3, pady=5, sticky="ew")
 
-        # SETTINGS CONTENT --------------------------------------------------------------------------------------------------------------------------
+        # CONTENT ---------------------------------------------------------------------------------------------------------------------------
+
+        self.Header = ttk.Label(self.MainFrame, text="Macro For Dummys", justify="center", font=("-size", 25, "-weight", "bold"))
+        self.Header.grid(row=0, column=0, pady=(15, 25), columnspan=3, sticky="n")
+
+        self.RecordButton = ttk.Button(self.MainFrame, style="Bigger.TButton", width=20, text="Record")
+        self.RecordButton.grid(row=1, column=0, sticky="ew", padx=(5), ipady=12, ipadx=12)
+        #self.RecordButton.bind("<Button-1>", self.)
+        
+        self.PlaybackButton = ttk.Button(self.MainFrame, style="Bigger.TButton", width=20, text="Playback")
+        self.PlaybackButton.grid(row=1, column=2, sticky="ew", padx=(5), ipady=12, ipadx=12)
+        #self.PlaybackButton.bind("<Button-1>", self.)
+
+        self.RecordButtonText = ttk.Label(self.RecordButtonTextFrame, text="Record", font=("-size", 18), background=self.Style.lookup("TButton", "background"))
+        self.RecordButtonText.grid(row=1, column=0, sticky="n")
+
+        self.RecordButtonSubText = ttk.Label(self.RecordButtonTextFrame, text="(unbound)", font=("-size", 7), background=self.Style.lookup("TButton", "background"))
+        self.RecordButtonSubText.grid(row=2, column=0, pady=(0, 2), sticky="n")
+
+        self.PlaybackButtonText = ttk.Label(self.PlaybackButtonTextFrame, text="Playback", font=("-size", 18), background=self.Style.lookup("TButton", "background"))
+        self.PlaybackButtonText.grid(row=1, column=0, sticky="n")
+
+        self.PlaybackButtonSubText = ttk.Label(self.PlaybackButtonTextFrame, text="(unbound)", font=("-size", 7), background=self.Style.lookup("TButton", "background"))
+        self.PlaybackButtonSubText.grid(row=2, column=0, pady=(0, 2), sticky="n")
         
         self.RecordingsComboBoxLabel = ttk.Label(self.RecordingsCombooxFrame, text="Recording:", font=("-size", 11))
         self.RecordingsComboBoxLabel.grid(row=0, column=0, sticky="w")
@@ -95,16 +109,24 @@ class Main(tk.Frame):
         self.RecordingsComboBox.grid(row=0, column=1, padx=(15,5), ipady=5, sticky="ew")
         self.RecordingsComboBox.current(self.RecordingsComboBoxList.index("None"))
         self.RecordingsComboBox.bind("<<ComboboxSelected>>", self.ChangeSelectedRecording)
-        self.RecordingsComboBox.bind("<KeyPress>", self.SaveEditing)
+        self.RecordingsComboBox.bind("<KeyPress>", self.SaveComboboxEditing)
 
-        self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFile.png"))
+        if self.InterpratSettings(3) == "True":
+            self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFileLight.png"))
+        else:
+            self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFileDark.png"))
+
         self.CreateFileImage = self.CreateFileImage.resize((25, 25), Image.LANCZOS)
         self.CreateFileImageTk = ImageTk.PhotoImage(self.CreateFileImage)
         self.CreateFileButton = ttk.Button(self.RecordingsCombooxFrame, image=self.CreateFileImageTk, width=5)
         self.CreateFileButton.bind("<Button-1>", self.CreateNewRecording, self.ChangeSelectedRecording)
         self.CreateFileButton.grid(row=0, column=2, padx=5, sticky="ew")
 
-        self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFile.png"))
+        if self.InterpratSettings(3) == "True":
+            self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFileLight.png"))
+        else:
+            self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFileDark.png"))
+
         self.DeleteFileImage = self.DeleteFileImage.resize((25, 25), Image.LANCZOS)
         self.DeleteFileImageTk = ImageTk.PhotoImage(self.DeleteFileImage)
         self.DeleteFileButton = ttk.Button(self.RecordingsCombooxFrame, image=self.DeleteFileImageTk, width=5)
@@ -190,24 +212,39 @@ class Main(tk.Frame):
                 else:
                     SettingsFile.write(line + "\n")
 
+    def SetupSubtext(self):
+        self.update_idletasks()
+
+        RecordButtonX = self.RecordButton.winfo_x()
+        RecordButtonY = self.RecordButton.winfo_y() + self.RecordButton.winfo_height()
+
+        PlaybackButtonX = self.PlaybackButton.winfo_x()
+        PlaybackButtonY = self.PlaybackButton.winfo_y() + self.PlaybackButton.winfo_height()
+
+        #self.RecordButtonTextFrame.place(x=RecordButtonX + self.RecordButton.winfo_width() / 2, y=RecordButtonY - 39, anchor="n")
+        #self.PlaybackButtonTextFrame.place(x=PlaybackButtonX + self.PlaybackButton.winfo_width() / 2, y=PlaybackButtonY - 39, anchor="n")
+
     def ChangeSelectedRecording(self, *args):
         SelectedRecording = self.RecordingsComboBox.get()
         if SelectedRecording == "None":
             self.RecordingsComboBox.config(state="readonly")
-            self.DisableEditing()
+            self.DisableComboboxEditing()
         else:
             self.RecordingsComboBox.config(state="normal")
-            self.EnableEditing(SelectedRecording)
+            self.EnableComboboxEditing(SelectedRecording)
     
         self.SaveSettings(1, SelectedRecording)
 
     def CreateNewRecording(self, event=None):
-        now = datetime.datetime.now()
-        filename = f"Recording_{now.strftime('%Y-%m-%d_%H-%M-%S')}.txt"
-        filepath = os.path.join(os.path.dirname(__file__), "Recordings", filename)
+        Directory = os.path.join(os.path.dirname(__file__), "Recordings")
+        ExistingFiles = [f for f in os.listdir(Directory) if os.path.isfile(os.path.join(Directory, f))]
+        FileCount = len(ExistingFiles) + 1
+
+        filename = f"Recording_{FileCount}.txt"
+        filepath = os.path.join(Directory, filename)
 
         with open(filepath, 'w') as new_file:
-            new_file.write("")  # Create an empty file
+            new_file.write("")
 
         self.RecordingsComboBoxList.append(filename)
         self.RecordingsComboBox.config(values=self.RecordingsComboBoxList)
@@ -226,17 +263,17 @@ class Main(tk.Frame):
             self.RecordingsComboBox.set("None")
 
             self.SaveSettings(1, "None")
-            self.DisableEditing()
+            self.DisableComboboxEditing()
 
-    def DisableEditing(self):
+    def DisableComboboxEditing(self):
         self.RecordButton.config(state="disabled")
         self.PlaybackButton.config(state="disabled")
 
-    def EnableEditing(self, filename):
+    def EnableComboboxEditing(self, filename):
         self.RecordButton.config(state="normal")
         self.PlaybackButton.config(state="normal")
 
-    def SaveEditing(self, filename):
+    def SaveComboboxEditing(self, filename):
         SelectedRecording = self.RecordingsComboBox.get()
         os.rename(os.path.join(os.path.dirname(__file__), "Recordings", filename), os.path.join(os.path.dirname(__file__), "Recordings", SelectedRecording))
         self.SaveSettings(1, filename)
@@ -245,6 +282,8 @@ class Main(tk.Frame):
         self.Style = ttk.Style(self)
         SelectedTheme = self.ThemeComboBox.get()
         ThemePath = os.path.join(os.path.dirname(__file__), "Themes", SelectedTheme, f"{SelectedTheme}.tcl")
+
+        self.SaveSettings(2, SelectedTheme)
 
         if self.DarkLightModeBool.get():
             ThemeMode = "dark"
@@ -258,9 +297,14 @@ class Main(tk.Frame):
             print(f"Failed to load theme from {ThemePath}: {e}")
             try:
                 ttk.Style().theme_use(f"{SelectedTheme.lower()}-{ThemeMode}")
-            except Exception as e:
-                print(f"Fallback theme loading failed: {e}")
+            except:
                 self.ReloadWindowScheduler()
+
+        self.RecordButtonText.config(background=self.Style.lookup("TButton", "background"))
+        self.PlaybackButtonText.config(background=self.Style.lookup("TButton", "background"))
+        self.RecordButtonSubText.config(background=self.Style.lookup("TButton", "background"))
+        self.PlaybackButtonSubText.config(background=self.Style.lookup("TButton", "background"))
+
         self.ConfigureRootGeometry()
 
     def ReloadWindowScheduler(self, *args):
@@ -295,6 +339,7 @@ class Main(tk.Frame):
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Macro For Dummys")
+    root.resizable(False, False)
     app = Main(root)
     app.pack(fill="both", expand=True)
     root.mainloop()
