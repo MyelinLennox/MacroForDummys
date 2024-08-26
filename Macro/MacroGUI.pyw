@@ -1,4 +1,3 @@
-from math import e
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
@@ -21,7 +20,14 @@ class Main(tk.Frame):
                     self.RecordingsComboBoxList.append(File)
         self.RecordingsComboBoxList.append("None")
 
-        self.VisualThemeMode = self.InterpratSettings(3)
+        self.VisualThemeMode = tk.StringVar(value=self.InterpratSettings(3))
+        self.VisualThemeMode.trace_add("write", self.SaveSettings(3, self.VisualThemeMode.get()))
+
+        self.IsVisualDarkLightMode = False
+        if self.VisualThemeMode.get() == "Dark":
+            self.IsVisualDarkLightMode = 1
+        elif self.VisualThemeMode.get() == "Light":
+            self.IsVisualDarkLightMode = 0
 
         self.UseMouseBool = tk.BooleanVar(value=self.InterpratSettings(4))
         self.UseMouseBool.trace_add("write", lambda *args: self.SaveSettings(4, self.UseMouseBool.get()))
@@ -30,7 +36,6 @@ class Main(tk.Frame):
         self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(5, self.UseKeyboardBool.get()))
 
         self.UseConsoleBool = tk.BooleanVar(value=self.InterpratSettings(6))
-        self.DarkLightMode = True if self.InterpratSettings(3) == "Dark" else False
         
         RecordingComboboxState = "readonly"
 
@@ -160,17 +165,19 @@ class Main(tk.Frame):
         self.ColorContainer6 = ttk.Frame(self.ColorContainerFrame)
         self.ColorContainer6.grid(row=5, column=0, pady=5, padx=5, sticky="nsew")
 
-        self.RadioCheck1 = ttk.Radiobutton(self.RadioCheckFrame, text="Light:", variable=self.InterpratSettings(3), value="Light")
+        self.RadioCheck1 = ttk.Radiobutton(self.RadioCheckFrame, text="Light:", variable=self.VisualThemeMode, value="Light")
         self.RadioCheck1.grid(row=0, column=0, padx=5, pady=10, sticky="nsew")
-        self.RadioCheck2 = ttk.Radiobutton(self.RadioCheckFrame, text="Dark:", variable=self.InterpratSettings(3), value="Dark")
+        self.RadioCheck1.bind("<Button-1>", self.ChangeTheme)
+        self.RadioCheck2 = ttk.Radiobutton(self.RadioCheckFrame, text="Dark:", variable=self.VisualThemeMode, value="Dark")
         self.RadioCheck2.grid(row=1, column=0, padx=5, pady=10, sticky="nsew")
-        self.RadioCheck3 = ttk.Radiobutton(self.RadioCheckFrame, text="Custom", variable=self.InterpratSettings(3), value="Custom")
+        self.RadioCheck2.bind("<Button-1>", self.ChangeTheme)
+        self.RadioCheck3 = ttk.Radiobutton(self.RadioCheckFrame, text="Custom", variable=self.VisualThemeMode, value="Custom")
+        self.RadioCheck3.grid(row=3, column=0, padx=5, pady=10, sticky="nsew")
+        self.RadioCheck3.bind("<Button-1>", self.SetCustomThemeColors(0))
+
 
         self.HorizonalSeparator = ttk.Separator(self.RadioCheckFrame, orient="horizontal", style="TSeparator")
         self.HorizonalSeparator.grid(row=2, column=0, columnspan=2, pady=5, sticky="ew", padx=5)
-
-        self.RadioCheck3.bind("<Button-1>", self.SetCustomThemeColors(0))
-        self.RadioCheck3.grid(row=3, column=0, padx=5, pady=10, sticky="nsew")
 
         self.ColorLabel1 = ttk.Label(self.ColorContainer1, text="Text Color:", font=("-size", 11))
         self.ColorLabel1.grid(row=0, column=0, sticky="w", padx=10)
@@ -521,25 +528,26 @@ class Main(tk.Frame):
             "selectbg": ["#217346", "#217346"]
         }
 
-        return colors[Color][self.DarkLightMode]
+        return colors[Color][self.IsVisualDarkLightMode]
         
     def ChangeTheme(self, *args):
         self.Style = ttk.Style(self)
-        Theme = "Park"
-        ThemePath = os.path.join(os.path.dirname(__file__), "Theme", Theme, f"{Theme}.tcl")
+        ThemePath = os.path.join(os.path.dirname(__file__), "Theme", "Park", f"Park.tcl")
 
-        if self.DarkLightMode:
+        if self.VisualThemeMode.get() == "Dark":
             ThemeMode = "dark"
-        else:
+        elif self.VisualThemeMode.get() == "Light":
             ThemeMode = "light"
+        else:
+            ThemeMode = "custom"
 
+        #if ThemeMode != "custom":
         try:
             self.root.tk.call("source", ThemePath)
             self.root.tk.call("set_theme", ThemeMode)
         except Exception as e:
-            print(f"Failed to load theme from {ThemePath}: {e}")
             try:
-                ttk.Style().theme_use(f"{Theme.lower()}-{ThemeMode}")
+                ttk.Style().theme_use(f"park-light")
             except:
                 self.ReloadWindowScheduler()
 
