@@ -1,16 +1,22 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter.font import ITALIC
 from PIL import Image, ImageTk
 import os
 import sys
 import ast
+
 
 class Main(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.root = root
         self.Style = ttk.Style(self)
+
         self.ReloadPending = False
+
+        self.ShouldRun = False
+
         self.CurrentBindingButton = None
 
         self.RecordingsComboBoxList = []
@@ -20,32 +26,25 @@ class Main(tk.Frame):
                     self.RecordingsComboBoxList.append(File)
         self.RecordingsComboBoxList.append("None")
 
-        self.VisualThemeMode = tk.StringVar(value=self.InterpratSettings(3))
-        self.VisualThemeMode.trace_add("write", self.SaveSettings(3, self.VisualThemeMode.get()))
+        self.IsDarkLightMode = tk.BooleanVar(value=self.InterpratSettings(3))
 
-        self.IsVisualDarkLightMode = False
-        if self.VisualThemeMode.get() == "Dark":
-            self.IsVisualDarkLightMode = 1
-        elif self.VisualThemeMode.get() == "Light":
-            self.IsVisualDarkLightMode = 0
+        self.IsCustomMode = tk.BooleanVar(value=self.InterpratSettings(4).lower() == "custom")
 
-        self.UseMouseBool = tk.BooleanVar(value=self.InterpratSettings(4))
-        self.UseMouseBool.trace_add("write", lambda *args: self.SaveSettings(4, self.UseMouseBool.get()))
+        self.UseMouseBool = tk.BooleanVar(value=self.InterpratSettings(5))
+        self.UseMouseBool.trace_add("write", lambda *args: self.SaveSettings(5, self.UseMouseBool.get()))
 
-        self.UseKeyboardBool = tk.BooleanVar(value=self.InterpratSettings(5))
-        self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(5, self.UseKeyboardBool.get()))
-
-        self.UseConsoleBool = tk.BooleanVar(value=self.InterpratSettings(6))
+        self.UseKeyboardBool = tk.BooleanVar(value=self.InterpratSettings(6))
+        self.UseKeyboardBool.trace_add("write", lambda *args: self.SaveSettings(6, self.UseKeyboardBool.get()))
         
         RecordingComboboxState = "readonly"
 
         self.CustomThemeColors = {
-            "fg" : self.GetThemeColors("fg"),
-            "bg" : self.GetThemeColors("bg"),
-            "disabledfg" : self.GetThemeColors("disabledfg"),
-            "disabledbg" : self.GetThemeColors("disabledbg"),
-            "selectfg" : self.GetThemeColors("selectfg"),
-            "selectbg" : self.GetThemeColors("selectbg")}
+            "fg" : self.GetThemeColors("fg", (self.IsDarkLightMode.get())),
+            "bg" : self.GetThemeColors("bg", (self.IsDarkLightMode.get())),
+            "disabledfg" : self.GetThemeColors("disabledfg", self.IsDarkLightMode.get()),
+            "disabledbg" : self.GetThemeColors("disabledbg", self.IsDarkLightMode.get()),
+            "selectfg" : self.GetThemeColors("selectfg", self.IsDarkLightMode.get()),
+            "selectbg" : self.GetThemeColors("selectbg", self.IsDarkLightMode.get())}
 
         # FRAMES --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -110,25 +109,11 @@ class Main(tk.Frame):
         self.RecordingsComboBox.bind("<<ComboboxSelected>>", self.ChangeSelectedRecording)
         self.RecordingsComboBox.bind("<KeyPress>", self.SaveComboboxEditing)
 
-        if self.InterpratSettings(3) == "Dark":
-            self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFileLight.png"))
-        else:
-            self.CreateFileImage = Image.open(os.path.join(os.path.dirname(__file__), "CreateFileDark.png"))
-
-        self.CreateFileImage = self.CreateFileImage.resize((25, 25), Image.LANCZOS)
-        self.CreateFileImageTk = ImageTk.PhotoImage(self.CreateFileImage)
-        self.CreateFileButton = ttk.Button(self.RecordingsComboxFrame, image=self.CreateFileImageTk, width=5)
+        self.CreateFileButton = ttk.Button(self.RecordingsComboxFrame, width=5)
         self.CreateFileButton.bind("<Button-1>", self.CreateNewRecording, self.ChangeSelectedRecording)
         self.CreateFileButton.grid(row=0, column=2, padx=5, sticky="ew")
 
-        if self.InterpratSettings(3) == "Dark":
-            self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFileLight.png"))
-        else:
-            self.DeleteFileImage = Image.open(os.path.join(os.path.dirname(__file__), "DeleteFileDark.png"))
-
-        self.DeleteFileImage = self.DeleteFileImage.resize((25, 25), Image.LANCZOS)
-        self.DeleteFileImageTk = ImageTk.PhotoImage(self.DeleteFileImage)
-        self.DeleteFileButton = ttk.Button(self.RecordingsComboxFrame, image=self.DeleteFileImageTk, width=5)
+        self.DeleteFileButton = ttk.Button(self.RecordingsComboxFrame, width=5)
         self.DeleteFileButton.bind("<Button-1>", self.DeleteRecording)
         self.DeleteFileButton.grid(row=0, column=3, padx=5, sticky="ew")
 
@@ -165,31 +150,35 @@ class Main(tk.Frame):
         self.ColorContainer6 = ttk.Frame(self.ColorContainerFrame)
         self.ColorContainer6.grid(row=5, column=0, pady=5, padx=5, sticky="nsew")
 
-        self.RadioCheck1 = ttk.Radiobutton(self.RadioCheckFrame, text="Light:", variable=self.VisualThemeMode, value="Light")
+        self.RadioCheck1 = ttk.Radiobutton(self.RadioCheckFrame, text="Light:", variable=self.IsDarkLightMode, value=False)
         self.RadioCheck1.grid(row=0, column=0, padx=5, pady=10, sticky="nsew")
-        self.RadioCheck1.bind("<Button-1>", self.ChangeTheme)
-        self.RadioCheck2 = ttk.Radiobutton(self.RadioCheckFrame, text="Dark:", variable=self.VisualThemeMode, value="Dark")
-        self.RadioCheck2.grid(row=1, column=0, padx=5, pady=10, sticky="nsew")
-        self.RadioCheck2.bind("<Button-1>", self.ChangeTheme)
-        self.RadioCheck3 = ttk.Radiobutton(self.RadioCheckFrame, text="Custom", variable=self.VisualThemeMode, value="Custom")
-        self.RadioCheck3.grid(row=3, column=0, padx=5, pady=10, sticky="nsew")
-        self.RadioCheck3.bind("<Button-1>", self.SetCustomThemeColors(0))
-
+        self.RadioCheck1.bind("<Button-1>", lambda event: self.ChangeTheme(False, False))
+        self.RadioCheck2 = ttk.Radiobutton(self.RadioCheckFrame, text="Dark:", variable=self.IsDarkLightMode, value=True)
+        self.RadioCheck2.grid(row=1, column=0, padx=5, pady=(10), sticky="nsew")
+        self.RadioCheck2.bind("<Button-1>", lambda event: self.ChangeTheme(True, False))
 
         self.HorizonalSeparator = ttk.Separator(self.RadioCheckFrame, orient="horizontal", style="TSeparator")
         self.HorizonalSeparator.grid(row=2, column=0, columnspan=2, pady=5, sticky="ew", padx=5)
+
+        self.RadioCheck3 = ttk.Radiobutton(self.RadioCheckFrame, text="Custom:", variable=self.IsCustomMode, value=True)
+        self.RadioCheck3.grid(row=3, column=0, padx=5, pady=(5,0), sticky="nsew")
+        self.RadioCheck3.bind("<Button-1>", lambda event: self.ChangeTheme(self.IsDarkLightMode.get(), True))
+
+        self.WipWarning = ttk.Label(self.RadioCheckFrame, text="( WIP )", font=("-size", 8, "-slant", ITALIC), justify="center")
+        self.WipWarning.grid(row=4, column=0, padx=5, sticky="n")
+        self.WipWarning.config(foreground=self.GetThemeColors("disabledfg", self.IsDarkLightMode.get()))
 
         self.ColorLabel1 = ttk.Label(self.ColorContainer1, text="Text Color:", font=("-size", 11))
         self.ColorLabel1.grid(row=0, column=0, sticky="w", padx=10)
         self.ColorLabel2 = ttk.Label(self.ColorContainer2, text="Primary:", font=("-size", 11))
         self.ColorLabel2.grid(row=1, column=0, sticky="w", padx=10)
-        self.ColorLabel3 = ttk.Label(self.ColorContainer3, text="disabledfg:", font=("-size", 11))
+        self.ColorLabel3 = ttk.Label(self.ColorContainer3, text="Secondary:", font=("-size", 11))
         self.ColorLabel3.grid(row=2, column=0, sticky="w", padx=10)
         self.ColorLabel4 = ttk.Label(self.ColorContainer4, text="disabledbg:", font=("-size", 11))
         self.ColorLabel4.grid(row=3, column=0, sticky="w", padx=10)
         self.ColorLabel5 = ttk.Label(self.ColorContainer5, text="selectfg:", font=("-size", 11))
         self.ColorLabel5.grid(row=4, column=0, sticky="w", padx=10)
-        self.ColorLabel6 = ttk.Label(self.ColorContainer6, text="selectbg:", font=("-size", 11))
+        self.ColorLabel6 = ttk.Label(self.ColorContainer6, text="Accent:", font=("-size", 11))
         self.ColorLabel6.grid(row=5, column=0, sticky="w", padx=10)
 
         self.ColorDisplay1 = ttk.Label(self.ColorContainer1)
@@ -208,38 +197,38 @@ class Main(tk.Frame):
         self.ColorInput1 = ttk.Entry(self.ColorContainer1, width=10)
         self.ColorInput1.grid(row=0, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput1.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput1, event), self.SetCustomThemeColors(1)])
-        self.ColorInput1.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput1, self.GetThemeColors("fg")))
-        self.ColorInput1.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput1, self.GetThemeColors("fg")))
+        self.ColorInput1.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput1, self.GetThemeColors("fg", self.IsDarkLightMode.get())))
+        self.ColorInput1.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput1, self.GetThemeColors("fg", self.IsDarkLightMode.get())))
 
         self.ColorInput2 = ttk.Entry(self.ColorContainer2, width=10)
         self.ColorInput2.grid(row=1, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput2.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput2, event), self.SetCustomThemeColors(2)])
-        self.ColorInput2.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput2, self.GetThemeColors("bg")))
-        self.ColorInput2.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput2, self.GetThemeColors("bg")))
+        self.ColorInput2.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput2, self.GetThemeColors("bg", self.IsDarkLightMode.get())))
+        self.ColorInput2.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput2, self.GetThemeColors("bg", self.IsDarkLightMode.get())))
 
         self.ColorInput3 = ttk.Entry(self.ColorContainer3, width=10)
         self.ColorInput3.grid(row=2, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput3.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput3, event), self.SetCustomThemeColors(3)])
-        self.ColorInput3.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput3, self.GetThemeColors("disabledfg")))
-        self.ColorInput3.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput3, self.GetThemeColors("disabledfg")))
+        self.ColorInput3.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput3, self.GetThemeColors("disabledfg", self.IsDarkLightMode.get())))
+        self.ColorInput3.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput3, self.GetThemeColors("disabledfg", self.IsDarkLightMode.get())))
 
         self.ColorInput4 = ttk.Entry(self.ColorContainer4, width=10)
         self.ColorInput4.grid(row=3, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput4.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput4, event), self.SetCustomThemeColors(4)])
-        self.ColorInput4.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput4, self.GetThemeColors("disabledbg")))
-        self.ColorInput4.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput4, self.GetThemeColors("disabledbg")))
+        self.ColorInput4.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput4, self.GetThemeColors("disabledbg", self.IsDarkLightMode.get())))
+        self.ColorInput4.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput4, self.GetThemeColors("disabledbg", self.IsDarkLightMode.get())))
 
         self.ColorInput5 = ttk.Entry(self.ColorContainer5, width=10)
         self.ColorInput5.grid(row=4, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput5.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput5, event), self.SetCustomThemeColors(5)])
-        self.ColorInput5.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput5, self.GetThemeColors("selectfg")))
-        self.ColorInput5.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput5, self.GetThemeColors("selectfg")))
+        self.ColorInput5.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput5, self.GetThemeColors("selectfg", self.IsDarkLightMode.get())))
+        self.ColorInput5.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput5, self.GetThemeColors("selectfg", self.IsDarkLightMode.get())))
 
         self.ColorInput6 = ttk.Entry(self.ColorContainer6, width=10)
         self.ColorInput6.grid(row=5, column=3, ipady=5, sticky="e", padx=15)
         self.ColorInput6.bind("<KeyRelease>", lambda event: [self.ValidateHexEntry(self.ColorInput6, event), self.SetCustomThemeColors(6)])
-        self.ColorInput6.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput6, self.GetThemeColors("selectbg")))
-        self.ColorInput6.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput6, self.GetThemeColors("selectbg")))
+        self.ColorInput6.bind("<FocusIn>", lambda event: self.EntryPlaceholderFocIn(self.ColorInput6, self.GetThemeColors("selectbg", self.IsDarkLightMode.get())))
+        self.ColorInput6.bind("<FocusOut>", lambda event: self.EntryPlaceholderFocOut(self.ColorInput6, self.GetThemeColors("selectbg", self.IsDarkLightMode.get())))
 
 
         for i in range(3):
@@ -252,25 +241,24 @@ class Main(tk.Frame):
 
         # FUNCTION LOAD -----------------------------------------------------------------------------------------------------------------------------
 
-        self.ChangeTheme()
+        self.ChangeTheme(self.IsDarkLightMode.get(), self.IsCustomMode.get())
+
+        self.UpdateColorDisplays(self.CustomThemeColors)
+
+        self.CustomThemeColors = ast.literal_eval(self.InterpratSettings(2))
+
+        self.UpdateFileIcons(self.CustomThemeColors['fg'])
+        
         self.ConfigureRootGeometry()
         self.ChangeSelectedRecording()
+        
+        self.EntryPlaceholderFocOut(self.ColorInput1, self.GetThemeColors("fg", (self.IsDarkLightMode.get())))
+        self.EntryPlaceholderFocOut(self.ColorInput2, self.GetThemeColors("bg", (self.IsDarkLightMode.get())))
+        self.EntryPlaceholderFocOut(self.ColorInput3, self.GetThemeColors("disabledfg", self.IsDarkLightMode.get()))
+        self.EntryPlaceholderFocOut(self.ColorInput4, self.GetThemeColors("disabledbg", self.IsDarkLightMode.get()))
+        self.EntryPlaceholderFocOut(self.ColorInput5, self.GetThemeColors("selectfg", self.IsDarkLightMode.get()))
+        self.EntryPlaceholderFocOut(self.ColorInput6, self.GetThemeColors("selectbg", self.IsDarkLightMode.get()))
 
-        self.UpdateColorDisplays(
-            self.GetThemeColors("fg"),
-            self.GetThemeColors("bg"),
-            self.GetThemeColors("disabledfg"),
-            self.GetThemeColors("disabledbg"),
-            self.GetThemeColors("selectfg"),
-            self.GetThemeColors("selectbg"))
-        
-        self.EntryPlaceholderFocOut(self.ColorInput1, self.GetThemeColors("fg"))
-        self.EntryPlaceholderFocOut(self.ColorInput2, self.GetThemeColors("bg"))
-        self.EntryPlaceholderFocOut(self.ColorInput3, self.GetThemeColors("disabledfg"))
-        self.EntryPlaceholderFocOut(self.ColorInput4, self.GetThemeColors("disabledbg"))
-        self.EntryPlaceholderFocOut(self.ColorInput5, self.GetThemeColors("selectfg"))
-        self.EntryPlaceholderFocOut(self.ColorInput6, self.GetThemeColors("selectbg"))
-        
     def ValidateHexEntry(self, Entry, Event):
         Placeholder = Entry.placeholder_text
         Value = Entry.get()
@@ -305,17 +293,17 @@ class Main(tk.Frame):
     def EntryPlaceholderFocIn(self, Entry, Placeholder):
         if Entry.get() == Placeholder:
             Entry.delete(0, "end")
-            Entry.config(foreground=self.GetThemeColors("bg"))
+            Entry.config(foreground=self.GetThemeColors("bg", self.IsDarkLightMode.get()))
             Entry.insert(0, '#')
 
     def EntryPlaceholderFocOut(self, Entry, Placeholder):
         if Entry.get() == "#" or Entry.get() == "":
             Entry.delete(0, "end")
             Entry.insert(0, Placeholder)
-            Entry.config(foreground=self.GetThemeColors("disabledfg"))
+            Entry.config(foreground=self.GetThemeColors("disabledfg", self.IsDarkLightMode.get()))
             Entry.placeholder_text = Placeholder
         else:
-            Entry.config(foreground=self.GetThemeColors("bg"))
+            Entry.config(foreground=self.GetThemeColors("bg", self.IsDarkLightMode.get()))
 
     @staticmethod
     def InterpratSettings(LineNumber=None):
@@ -381,7 +369,7 @@ class Main(tk.Frame):
         ExistingFiles = [f for f in os.listdir(Directory) if os.path.isfile(os.path.join(Directory, f))]
         FileCount = len(ExistingFiles) + 1
 
-        filename = f"Recording_{FileCount}.txt"
+        filename = f"Recording_{FileCount}.dat"
         filepath = os.path.join(Directory, filename)
 
         with open(filepath, 'w') as new_file:
@@ -419,11 +407,10 @@ class Main(tk.Frame):
         os.rename(os.path.join(os.path.dirname(__file__), "Recordings", filename), os.path.join(os.path.dirname(__file__), "Recordings", SelectedRecording))
         self.SaveSettings(1, filename)
 
-    def UpdateColorDisplays(self, fg, bg, disabledfg, disabledbg, selectfg, selectbg):
-        Colors = [fg, bg, disabledfg, disabledbg, selectfg, selectbg]
+    def UpdateColorDisplays(self, Colors):
 
-        for i in range(6):
-            HexColor = Colors[i]
+        for i, key in enumerate(Colors):
+            HexColor = Colors[key]
             RgbaColor = tuple(int(HexColor[j:j+2], 16) for j in (1, 3, 5)) + (255,)
 
             BaseImage = Image.open(os.path.join(os.path.dirname(__file__), "ColorDisplayBase.png"))
@@ -460,65 +447,161 @@ class Main(tk.Frame):
             Display.config(image=ImageTkResult)
             Display.image = ImageTkResult
 
+    def UpdateFileIcons(self, Color):
+        Images = {
+            self.DeleteFileButton: os.path.join(os.path.dirname(__file__), "DeleteFile.png"),
+            self.CreateFileButton: os.path.join(os.path.dirname(__file__), "CreateFile.png")
+        }
+
+        if self.IsCustomMode.get() == True:
+            HexColor = Color
+        else:
+            HexColor = self.GetThemeColors("bg", self.IsDarkLightMode.get())
+
+        RgbaColor = tuple(int(HexColor[j:j+2], 16) for j in (1, 3, 5)) + (255,)
+
+        for button, image_path in Images.items():
+            BaseImage = Image.open(image_path).convert("RGBA")
+            ResultImage = Image.new("RGBA", BaseImage.size, (0, 0, 0, 0))
+
+            BaseData = BaseImage.load()
+            AlphaChannel = BaseImage.split()[3]
+            ResultData = ResultImage.load()
+
+            threshold = 200
+            for y in range(BaseImage.height):
+                for x in range(BaseImage.width):
+                    r, g, b, a = BaseData[x, y]
+                    if r > threshold and g > threshold and b > threshold:
+                        ResultData[x, y] = RgbaColor
+                    else:
+                        ResultData[x, y] = (0, 0, 0, 255)
+
+            for y in range(BaseImage.height):
+                for x in range(BaseImage.width):
+                    r, g, b, _ = ResultData[x, y]
+                    alpha = AlphaChannel.getpixel((x, y))
+                    ResultData[x, y] = (r, g, b, alpha)
+
+            ImageTkResult = ImageTk.PhotoImage(ResultImage)
+            ImageTkResult = ImageTkResult._PhotoImage__photo.subsample(22)
+
+            button.config(image=ImageTkResult)
+            button.image = ImageTkResult
+
     def SetCustomThemeColors(self, index, *args):
         NormalColorOrder = ["fg", "bg", "disabledfg", "disabledbg", "selectfg", "selectbg"]
 
-        if index == 0:
+        if self.IsCustomMode.get() == True:
 
-            try:
-                self.CustomThemeColors = ast.literal_eval(self.InterpratSettings(2))
-            except (ValueError, SyntaxError) as e:
-                print(f"Error parsing settings: {e}")
-                self.CustomThemeColors = {
-                    "fg": "",
-                    "bg": "",
-                    "disabledfg": "",
-                    "disabledbg": "",
-                    "selectfg": "",
-                    "selectbg": ""
-                }
-            for i in self.CustomThemeColors:
-                if self.CustomThemeColors[i] == "":
-                    self.CustomThemeColors[i] = self.GetThemeColors(i)
-        else:
-            Label = getattr(self, f"ColorInput{index}", None)
-            LabelText = Label.get()
+            self.Style.configure('.', 
+                background=self.GetThemeColors('bg', not(self.IsDarkLightMode.get())), 
+                foreground=self.GetThemeColors('fg', not(self.IsDarkLightMode.get())),
+                troughcolor=self.GetThemeColors('bg', self.IsDarkLightMode.get()), 
+                focuscolor=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                selectbackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                selectforeground=self.GetThemeColors('selectfg', self.IsDarkLightMode.get()), 
+                insertcolor=self.GetThemeColors('fg', self.IsDarkLightMode.get()),  
+                fieldbackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()))
 
-            if LabelText != "#":
-                if len(LabelText) == 7 or len(LabelText) == 1 and all(c in "0123456789ABCDEFabcdef" for c in LabelText[1:]):
-                    self.CustomThemeColors[NormalColorOrder[index-1]] = LabelText
+            root.tk_setPalette(
+                background=self.GetThemeColors('bg', not(self.IsDarkLightMode.get())), 
+                foreground=self.GetThemeColors('fg', not(self.IsDarkLightMode.get())), 
+                highlightColor=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                selectBackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                selectForeground=self.GetThemeColors('selectfg', self.IsDarkLightMode.get()), 
+                activeBackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                activeForeground=self.GetThemeColors('selectfg', self.IsDarkLightMode.get()))
+
+            if index == 0:
+                try:
+                    self.CustomThemeColors = ast.literal_eval(self.InterpratSettings(2))
+                except (ValueError, SyntaxError) as e:
+                    print(f"Error parsing settings: {e}")
+                    self.CustomThemeColors = {
+                        "fg": "",
+                        "bg": "",
+                        "disabledfg": "",
+                        "disabledbg": "",
+                        "selectfg": "",
+                        "selectbg": ""
+                    }
+                for i in self.CustomThemeColors:
+                    if self.CustomThemeColors[i] == "":
+                        self.CustomThemeColors[i] = self.GetThemeColors(i, self.IsDarkLightMode.get())
+
+                for i in range(6):
+                    self.EntryPlaceholderFocIn(getattr(self, f"ColorInput{i+1}", None), self.CustomThemeColors[NormalColorOrder[i]])
+
+                    Label = getattr(self, f"ColorInput{i+1}", None)
+                    Label.delete(0, "end")
+                    Label.insert(0, self.CustomThemeColors[NormalColorOrder[i]])
+                    
+                    self.EntryPlaceholderFocOut(getattr(self, f"ColorInput{i+1}", None), self.CustomThemeColors[NormalColorOrder[i]])
+
+                    FilledThemeColors = ast.literal_eval(self.InterpratSettings(2))
+
+                    if FilledThemeColors[NormalColorOrder[i]] == "":
+                        getattr(self, f"ColorInput{i+1}", None).config(foreground=self.GetThemeColors("disabledfg", self.IsDarkLightMode.get()))
+
+            else:
+                Label = getattr(self, f"ColorInput{index}", None)
+                LabelText = Label.get()
+
+                if LabelText != "#":
+                    if len(LabelText) == 7 or (len(LabelText) == 1 and all(c in "0123456789ABCDEFabcdef" for c in LabelText[1:])):
+                        self.CustomThemeColors[NormalColorOrder[index-1]] = LabelText
+                    else:
+                        self.CustomThemeColors[NormalColorOrder[index-1]] = self.GetThemeColors(NormalColorOrder[index-1], self.IsDarkLightMode.get())
+
+                    self.Style.configure('.', 
+                        background=self.GetThemeColors('bg', not(self.IsDarkLightMode.get())), 
+                        foreground=self.GetThemeColors('fg', not(self.IsDarkLightMode.get())),
+                        troughcolor=self.GetThemeColors('bg', self.IsDarkLightMode.get()), 
+                        focuscolor=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                        selectbackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                        selectforeground=self.GetThemeColors('selectfg', self.IsDarkLightMode.get()), 
+                        insertcolor=self.GetThemeColors('fg', self.IsDarkLightMode.get()),  
+                        fieldbackground=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()))
+
+                    root.tk_setPalette(
+                        background=self.GetThemeColors('bg', not(self.IsDarkLightMode.get())), 
+                        foreground=self.GetThemeColors('fg', not(self.IsDarkLightMode.get())), 
+                        highlightColor=self.GetThemeColors('selectbg', self.IsDarkLightMode.get()), 
+                        selectBackground=self.GetThemeColors('selectbackground', self.IsDarkLightMode.get()), 
+                        selectForeground=self.GetThemeColors('selectforeground', self.IsDarkLightMode.get()), 
+                        activeBackground=self.GetThemeColors('selectbackground', self.IsDarkLightMode.get()), 
+                        activeForeground=self.GetThemeColors('selectforeground', self.IsDarkLightMode.get()))
+
+                if len(LabelText) == 7 or (LabelText == "#" and all(c in "#0123456789ABCDEFabcdef" for c in LabelText[1:])):
+                    if not self.ShouldRun:
+                        for i in range(6):
+                            EntryValue = getattr(self, f"ColorInput{i+1}", None).get()
+                            DefaultColor = self.GetThemeColors(NormalColorOrder[i], self.IsDarkLightMode.get())
+
+                            if EntryValue == DefaultColor or EntryValue == "#":
+                                self.CustomThemeColors[NormalColorOrder[i]] = ""
+                            else:
+                                self.CustomThemeColors[NormalColorOrder[i]] = EntryValue
+
+                        print(self.CustomThemeColors)
+
+
+                        self.SaveSettings(2, self.CustomThemeColors)
+
+                        for i in range(6):
+                            if self.CustomThemeColors[NormalColorOrder[i]] == "":
+                                self.CustomThemeColors[NormalColorOrder[i]] = self.GetThemeColors(NormalColorOrder[i], not(self.IsDarkLightMode.get()))
+                        print(self.CustomThemeColors)
+
+                        self.UpdateColorDisplays(self.CustomThemeColors)
+                        self.UpdateFileIcons(self.CustomThemeColors['fg'])
+                        
+                        self.ShouldRun = True 
                 else:
-                    self.CustomThemeColors[NormalColorOrder[index-1]] = self.GetThemeColors(NormalColorOrder[index-1])
+                    self.ShouldRun = False
 
-                self.Style.configure('.', 
-                    background=self.CustomThemeColors.get('bg', self.Style.lookup('.', 'background')), 
-                    foreground=self.CustomThemeColors.get('fg', self.Style.lookup('.', 'foreground')),
-                    troughcolor=self.CustomThemeColors.get('bg', self.Style.lookup('.', 'troughcolor')), 
-                    focuscolor=self.CustomThemeColors.get('selectbg', self.Style.lookup('.', 'focuscolor')), 
-                    selectbackground=self.CustomThemeColors.get('selectbg', self.Style.lookup('.', 'selectbackground')), 
-                    selectforeground=self.CustomThemeColors.get('selectfg', self.Style.lookup('.', 'selectforeground')), 
-                    insertcolor=self.CustomThemeColors.get('fg', self.Style.lookup('.', 'insertcolor')),  
-                    fieldbackground=self.CustomThemeColors.get('selectbg', self.Style.lookup('.', 'fieldbackground')))
-                root.tk_setPalette(
-                    background=self.Style.lookup('.', 'background'), 
-                    foreground=self.Style.lookup('.', 'foreground'), 
-                    highlightColor=self.Style.lookup('.', 'focuscolor'), 
-                    selectBackground=self.Style.lookup('.', 'selectbackground'), 
-                    selectForeground=self.Style.lookup('.', 'selectforeground'), 
-                    activeBackground=self.Style.lookup('.', 'selectbackground'), 
-                    activeForeground=self.Style.lookup('.', 'selectforeground'))
-                UpdatedCustomThemeColors = [
-                    self.CustomThemeColors["fg"],
-                    self.CustomThemeColors["bg"],
-                    self.CustomThemeColors["disabledfg"],
-                    self.CustomThemeColors["disabledbg"],
-                    self.CustomThemeColors["selectfg"],
-                    self.CustomThemeColors["selectbg"]]
-                self.UpdateColorDisplays(*UpdatedCustomThemeColors)
-
-        self.SaveSettings(2, self.CustomThemeColors)
-
-    def GetThemeColors(self, Color):
+    def GetThemeColors(self, Color, IsDark):
         colors = {
             "fg": ["#eeeeee", "#313131"],
             "bg": ["#313131", "#ffffff"],
@@ -528,30 +611,62 @@ class Main(tk.Frame):
             "selectbg": ["#217346", "#217346"]
         }
 
-        return colors[Color][self.IsVisualDarkLightMode]
+        return colors[Color][IsDark]
         
-    def ChangeTheme(self, *args):
-        self.Style = ttk.Style(self)
-        ThemePath = os.path.join(os.path.dirname(__file__), "Theme", "Park", f"Park.tcl")
+    def ChangeTheme(self, Mode, IsCustom, *args):
+        self.IsDarkLightMode.set(Mode)
+        self.SaveSettings(3, Mode)
+        self.IsCustomMode.set(IsCustom)
+        self.SaveSettings(4, IsCustom)
 
-        if self.VisualThemeMode.get() == "Dark":
-            ThemeMode = "dark"
-        elif self.VisualThemeMode.get() == "Light":
-            ThemeMode = "light"
+        if Mode:
+            Mode = "dark"
         else:
-            ThemeMode = "custom"
+            Mode = "light"
 
-        #if ThemeMode != "custom":
-        try:
-            self.root.tk.call("source", ThemePath)
-            self.root.tk.call("set_theme", ThemeMode)
-        except Exception as e:
+        self.Style = ttk.Style(self)
+        ThemePath = os.path.join(os.path.dirname(__file__), "Theme", "Park", "Park.tcl")
+
+        if IsCustom == False:
+            self.RadioCheck1.config(variable=self.IsDarkLightMode, value=False)
+            self.RadioCheck2.config(variable=self.IsDarkLightMode, value=True)
+
+            Mode = Mode.lower()
             try:
-                ttk.Style().theme_use(f"park-light")
-            except:
+                self.root.tk.call("source", ThemePath)
+                self.root.tk.call("set_theme", Mode)
+            except Exception as e:
                 self.ReloadWindowScheduler()
+        else:
+            self.RadioCheck1.config(value=not(self.IsDarkLightMode.get()))
+            self.RadioCheck2.config(value=not(self.IsDarkLightMode.get()))
+
+            self.SetCustomThemeColors(0)
+            self.ToggleCustomColorsOverlay()
 
         self.ConfigureRootGeometry()
+
+    def ToggleCustomColorsOverlay(self):
+        self.ColorContainerFrame = ttk.Frame(self.Container)
+        self.ColorContainerFrame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        FrameWidth = self.ColorContainerFrame.winfo_width()
+        FrameHeight = self.ColorContainerFrame.winfo_height()
+
+        Width = FrameWidth + 20
+        Height = FrameHeight + 20
+
+        ScreenWidth = self.root.winfo_screenwidth()
+        ScreenHeight = self.root.winfo_screenheight()
+
+        X = (ScreenWidth // 2) - (Width // 2)
+        Y = (ScreenHeight // 2) - (Height // 2)
+        print(X, Y)
+
+        overlay_box = tk.Frame(self, bg="black")
+        overlay_box.place(x=X, y=Y, width=Width, height=Height)
+        overlay_box.lower()
+        
 
     def ReloadWindowScheduler(self, *args):
         if not self.ReloadPending:
