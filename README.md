@@ -1,3 +1,9 @@
+
+#  -- NOT FUNCTIONAL --
+# currently in development
+
+
+
 # Macro For Dummys
 
 An easy macro used for gaming, programing, or just simplifying repetitive tasks.
